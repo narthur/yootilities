@@ -2,14 +2,14 @@ import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Calculator, Wrench, ChevronRight } from 'lucide-react';
 import DataConverter from './pages/DataConverter';
-import Placeholder from './pages/Placeholder';
+import BeeminderImport from './pages/BeeminderImport';
 
 function App() {
   const location = useLocation();
   
   const navigation = [
-    { name: 'Data Converter', path: '/', icon: Calculator },
-    { name: 'Coming Soon', path: '/tools', icon: Wrench },
+    { name: 'From Clipboard', path: '/', icon: Calculator },
+    { name: 'From Beeminder', path: '/tools', icon: Wrench },
   ];
 
   return (
@@ -55,7 +55,7 @@ function App() {
               </div>
               <Routes>
                 <Route path="/" element={<DataConverter />} />
-                <Route path="/tools" element={<Placeholder />} />
+                <Route path="/tools" element={<BeeminderImport />} />
               </Routes>
             </div>
           </div>

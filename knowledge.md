@@ -28,7 +28,13 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 ## Current Features
 
 - Data Converter: Converts tab-separated time entries to a specific format
-- More tools planned
+- Beeminder Integration: Import data using Beeminder API
+
+## External APIs
+
+- Beeminder API: https://api.beeminder.com/#beeminder-api-reference
+  - API token stored in localStorage under 'beeminderConfig'
+  - Token management in BeeminderImport component
 
 ## Commands
 
