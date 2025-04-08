@@ -1,8 +1,9 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Calculator, Wrench, ChevronRight } from 'lucide-react';
+import { Calculator, Wrench, ChevronRight, ArrowDownAZ } from 'lucide-react';
 import DataConverter from './pages/DataConverter';
 import BeeminderImport from './pages/BeeminderImport';
+import SortEntries from './pages/SortEntries';
 
 function App() {
   const location = useLocation();
@@ -10,6 +11,7 @@ function App() {
   const navigation = [
     { name: 'From Clipboard', path: '/', icon: Calculator },
     { name: 'From Beeminder', path: '/tools', icon: Wrench },
+    { name: 'Sort Entries', path: '/sort', icon: ArrowDownAZ },
   ];
 
   return (
@@ -56,6 +58,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<DataConverter />} />
                 <Route path="/tools" element={<BeeminderImport />} />
+                <Route path="/sort" element={<SortEntries />} />
               </Routes>
             </div>
           </div>

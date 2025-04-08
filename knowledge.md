@@ -29,6 +29,7 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 
 - Data Converter: Converts tab-separated time entries to a specific format
 - Beeminder Integration: Import data using Beeminder API
+- Sort Entries: Sort iou[] format entries by date
 
 ## External APIs
 
