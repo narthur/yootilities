@@ -39,14 +39,16 @@ function DataConverter() {
 
     // Convert to array and sort by date descending
     const processedEntries: ProcessedEntry[] = Object.entries(groupedData)
-      .map(([date, totalHours]) => ({ date, totalHours }))
+      .map(([date, totalHours]) => ({ 
+        date, 
+        totalHours: Number(totalHours.toFixed(2))
+      }))
       .sort((a, b) => b.date.localeCompare(a.date));
 
     // Generate output lines
     const outputLines = processedEntries.map(entry => {
       const formattedDate = entry.date.replace(/-/g, '.');
-      const amount = (entry.totalHours * rate).toFixed(2);
-      return `iou[${formattedDate}, ${amount}, ppd, ${account}, "${comment}"]`;
+      return `iou[${formattedDate}, ${entry.totalHours}*${rate}, ppd, ${account}, "${comment}"]`;
     });
 
     setOutput(outputLines);

@@ -35,6 +35,11 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 - Beeminder API: https://api.beeminder.com/#beeminder-api-reference
   - API token stored in localStorage under 'beeminderConfig'
   - Token management in BeeminderImport component
+  - Goals endpoint: GET https://www.beeminder.com/api/v1/users/me/goals.json
+  - Datapoints endpoint: GET https://www.beeminder.com/api/v1/users/me/goals/:slug/datapoints.json
+  - Data formats:
+    - Goal: { slug, title, goalval, rate, runits }
+    - Datapoint: { timestamp, value, comment }
 
 ## Commands
 
