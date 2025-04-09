@@ -1,0 +1,7 @@
+[build]
+command = "pnpm install && pnpm run build"
+publish = "dist"
+node_version = "20"
+
+[build.environment]
+NODE_VERSION = "20" 
