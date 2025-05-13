@@ -1,7 +1,7 @@
 export default {
   providers: [
     {
-      domain: "clerk.accounts.dev",
+      domain: process.env.VITE_CLERK_FRONTEND_API_URL,
       applicationID: "convex",
     },
   ],
