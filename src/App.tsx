@@ -4,14 +4,14 @@ import {
   Wrench,
   ChevronRight,
   ArrowDownAZ,
-  Database,
+  Settings as SettingsIcon,
   RefreshCw,
 } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import DataConverter from "./pages/DataConverter";
 import BeeminderImport from "./pages/BeeminderImport";
 import SortEntries from "./pages/SortEntries";
-import BaserowConfig from "./pages/BaserowConfig";
+import Settings from "./pages/Settings";
 import LedgerUpdate from "./pages/LedgerUpdate";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
@@ -26,7 +26,7 @@ function App() {
     { name: "From Clipboard", path: "/", icon: Calculator },
     { name: "From Beeminder", path: "/tools", icon: Wrench },
     { name: "Sort Entries", path: "/sort", icon: ArrowDownAZ },
-    { name: "Baserow Config", path: "/baserow", icon: Database },
+    { name: "Settings", path: "/settings", icon: SettingsIcon },
     { name: "Update Ledger", path: "/update", icon: RefreshCw },
   ];
 
@@ -107,10 +107,10 @@ function App() {
                   }
                 />
                 <Route
-                  path="/baserow"
+                  path="/settings"
                   element={
                     <ProtectedRoute>
-                      <BaserowConfig />
+                      <Settings />
                     </ProtectedRoute>
                   }
                 />
