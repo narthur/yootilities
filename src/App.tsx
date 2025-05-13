@@ -7,6 +7,7 @@ import SortEntries from "./pages/SortEntries";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { Authenticated } from "convex/react";
 
 console.log("App");
 
