@@ -210,7 +210,7 @@ export function mergeEntries(
 
   // Add Luke's entries from Baserow
   baserowEntries
-    .filter((entry) => entry.person === "Luke")
+    .filter((entry) => entry.person.includes("Luke"))
     .forEach((entry) => {
       const date = entry.date.replace(/-/g, ".");
       if (!merged.some((e) => e.date === date)) {
