@@ -1,11 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Key, CheckCircle, XCircle } from 'lucide-react';
-
-const BEEMINDER_CONFIG_KEY = 'beeminderConfig';
-
-interface BeeminderConfig {
-  apiToken: string;
-}
+import React, { useState, useEffect, useCallback } from "react";
+import { Key, CheckCircle, XCircle } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 interface BeeminderGoal {
   slug: string;
@@ -22,97 +18,130 @@ interface BeeminderDatapoint {
 }
 
 function BeeminderImport() {
-  const [token, setToken] = useState('');
+  const config = useQuery(api.beeminderConfig.get);
+  const saveConfig = useMutation(api.beeminderConfig.save);
+  const removeConfig = useMutation(api.beeminderConfig.remove);
+
+  const [token, setToken] = useState("");
   const [isConfigured, setIsConfigured] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [goals, setGoals] = useState<BeeminderGoal[]>([]);
-  const [selectedGoal, setSelectedGoal] = useState('');
+  const [selectedGoal, setSelectedGoal] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [output, setOutput] = useState<string[]>([]);
   const [rate, setRate] = useState(35);
-  const [account, setAccount] = useState('na');
-  const [comment, setComment] = useState('hours');
+  const [account, setAccount] = useState("na");
+  const [comment, setComment] = useState("hours");
+
+  const fetchGoals = useCallback(
+    async (apiToken: string) => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const response = await fetch(
+          `https://www.beeminder.com/api/v1/users/me/goals.json?auth_token=${apiToken}`,
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch goals");
+        }
+        const data = await response.json();
+        setGoals(
+          data.sort((a: BeeminderGoal, b: BeeminderGoal) =>
+            a.slug.localeCompare(b.slug),
+          ),
+        );
+      } catch {
+        setError("Failed to load goals. Please check your API token.");
+        setIsConfigured(false);
+        await removeConfig();
+      }
+      setIsLoading(false);
+    },
+    [removeConfig],
+  );
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem(BEEMINDER_CONFIG_KEY);
-    if (savedConfig) {
-      const config: BeeminderConfig = JSON.parse(savedConfig);
+    if (config) {
       setToken(config.apiToken);
+      setRate(config.defaultRate);
+      setAccount(config.defaultAccount);
+      setComment(config.defaultComment);
       setIsConfigured(true);
       fetchGoals(config.apiToken);
     }
-  }, []);
-
-  const fetchGoals = async (apiToken: string) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const response = await fetch(`https://www.beeminder.com/api/v1/users/me/goals.json?auth_token=${apiToken}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch goals');
-      }
-      const data = await response.json();
-      setGoals(data.sort((a: BeeminderGoal, b: BeeminderGoal) => a.slug.localeCompare(b.slug)));
-    } catch (err) {
-      setError('Failed to load goals. Please check your API token.');
-      setIsConfigured(false);
-      localStorage.removeItem(BEEMINDER_CONFIG_KEY);
-    }
-    setIsLoading(false);
-  };
+  }, [config, fetchGoals]);
 
   const fetchDatapoints = async (goalSlug: string) => {
     setIsLoading(true);
-    setError('');
+    setError("");
     try {
-      const response = await fetch(`https://www.beeminder.com/api/v1/users/me/goals/${goalSlug}/datapoints.json?auth_token=${token}`);
+      const response = await fetch(
+        `https://www.beeminder.com/api/v1/users/me/goals/${goalSlug}/datapoints.json?auth_token=${token}`,
+      );
       if (!response.ok) {
-        throw new Error('Failed to fetch datapoints');
+        throw new Error("Failed to fetch datapoints");
       }
       const data: BeeminderDatapoint[] = await response.json();
-      
-      const groupedData = data.reduce((acc: { [key: string]: number }, point) => {
-        const date = new Date(point.timestamp * 1000).toISOString().split('T')[0];
-        acc[date] = (acc[date] || 0) + point.value;
-        return acc;
-      }, {});
+
+      const groupedData = data.reduce(
+        (acc: { [key: string]: number }, point) => {
+          const date = new Date(point.timestamp * 1000)
+            .toISOString()
+            .split("T")[0];
+          acc[date] = (acc[date] || 0) + point.value;
+          return acc;
+        },
+        {},
+      );
 
       const outputLines = Object.entries(groupedData)
         .sort(([a], [b]) => b.localeCompare(a))
         .map(([date, totalValue]) => {
-          const formattedDate = date.replace(/-/g, '.');
+          const formattedDate = date.replace(/-/g, ".");
           const roundedValue = Number(totalValue.toFixed(2));
           return `iou[${formattedDate}, ${roundedValue}*${rate}, ppd, ${account}, "${comment}"]`;
         });
 
       setOutput(outputLines);
-    } catch (err) {
-      setError('Failed to load datapoints. Please try again.');
+    } catch {
+      setError("Failed to load datapoints. Please try again.");
     }
     setIsLoading(false);
   };
 
-  const handleSaveToken = () => {
+  const handleSaveToken = async () => {
     if (!token.trim()) {
-      setError('Please enter an API token');
+      setError("Please enter an API token");
       return;
     }
 
-    const config: BeeminderConfig = { apiToken: token.trim() };
-    localStorage.setItem(BEEMINDER_CONFIG_KEY, JSON.stringify(config));
-    setIsConfigured(true);
-    setError('');
-    fetchGoals(token.trim());
+    try {
+      await saveConfig({
+        apiToken: token.trim(),
+        defaultRate: rate,
+        defaultAccount: account,
+        defaultComment: comment,
+      });
+      setIsConfigured(true);
+      setError("");
+      fetchGoals(token.trim());
+    } catch {
+      setError("Failed to save configuration");
+    }
   };
 
-  const handleClearToken = () => {
-    localStorage.removeItem(BEEMINDER_CONFIG_KEY);
-    setToken('');
-    setIsConfigured(false);
-    setError('');
-    setGoals([]);
-    setSelectedGoal('');
-    setOutput([]);
+  const handleClearToken = async () => {
+    try {
+      await removeConfig();
+      setToken("");
+      setIsConfigured(false);
+      setError("");
+      setGoals([]);
+      setSelectedGoal("");
+      setOutput([]);
+    } catch {
+      setError("Failed to clear configuration");
+    }
   };
 
   const handleGoalChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -130,12 +159,17 @@ function BeeminderImport() {
       <div className="p-8">
         <div className="flex items-center mb-6">
           <Key className="w-8 h-8 text-blue-600 mr-3" />
-          <h2 className="text-2xl font-semibold text-gray-900">Beeminder API Configuration</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">
+            Beeminder API Configuration
+          </h2>
         </div>
 
         <div className="space-y-6">
           <div>
-            <label htmlFor="apiToken" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="apiToken"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               API Token
             </label>
             <div className="flex gap-4">
@@ -143,7 +177,7 @@ function BeeminderImport() {
                 type="password"
                 id="apiToken"
                 className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  error ? 'border-red-300' : 'border-gray-300'
+                  error ? "border-red-300" : "border-gray-300"
                 }`}
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
@@ -178,15 +212,18 @@ function BeeminderImport() {
             </div>
             <p className="text-sm text-gray-600">
               {isConfigured
-                ? 'API token is configured'
-                : 'API token not configured. Get your token from Beeminder settings.'}
+                ? "API token is configured"
+                : "API token not configured. Get your token from Beeminder settings."}
             </p>
           </div>
 
           {isConfigured && (
             <>
               <div>
-                <label htmlFor="goal" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="goal"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Select Goal
                 </label>
                 <select
@@ -210,7 +247,10 @@ function BeeminderImport() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="rate" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="rate"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
                     Rate
                   </label>
                   <input
@@ -222,7 +262,10 @@ function BeeminderImport() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="account" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="account"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
                     Account
                   </label>
                   <input
@@ -236,7 +279,10 @@ function BeeminderImport() {
               </div>
 
               <div>
-                <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="comment"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Comment
                 </label>
                 <input
@@ -250,13 +296,16 @@ function BeeminderImport() {
 
               {output.length > 0 && (
                 <div>
-                  <label htmlFor="output" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="output"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
                     Output
                   </label>
                   <textarea
                     id="output"
                     className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
-                    value={output.join('\n')}
+                    value={output.join("\n")}
                     readOnly
                   />
                 </div>
