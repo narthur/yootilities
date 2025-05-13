@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { Copy, Check } from "lucide-react";
 
 function LedgerUpdate() {
   const [ledgerContent, setLedgerContent] = useState("");
@@ -9,6 +10,7 @@ function LedgerUpdate() {
   const [error, setError] = useState("");
   const [updatedLedger, setUpdatedLedger] = useState("");
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const baserowConfig = useQuery(api.baserowConfig.get);
   const beeminderConfig = useQuery(api.beeminderConfig.get);
@@ -32,6 +34,14 @@ function LedgerUpdate() {
       setProcessingStatus(null);
     }
   }, [latestSnapshot]);
+
+  // Reset copied state after 2 seconds
+  useEffect(() => {
+    if (copied) {
+      const timer = setTimeout(() => setCopied(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copied]);
 
   const handleUpdate = async () => {
     if (!ledgerContent.trim()) {
@@ -62,6 +72,12 @@ function LedgerUpdate() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCopy = async () => {
+    const entries = extractIouEntries(updatedLedger);
+    await navigator.clipboard.writeText(entries);
+    setCopied(true);
   };
 
   return (
@@ -103,9 +119,25 @@ function LedgerUpdate() {
 
           {updatedLedger && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Changes
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Changes</h3>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy Entries
+                    </>
+                  )}
+                </button>
+              </div>
               <div className="rounded-lg overflow-hidden border border-gray-200">
                 <ReactDiffViewer
                   oldValue={extractIouEntries(ledgerContent)}
