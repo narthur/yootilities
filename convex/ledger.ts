@@ -215,7 +215,7 @@ export function mergeEntries(
       merged.push({
         date,
         amount: `${entry.hours}*35`,
-        from: "shared",
+        from: "ppd",
         to: "la",
         comment: "hours",
       });
@@ -228,7 +228,7 @@ export function mergeEntries(
       merged.push({
         date: entry.date,
         amount: `${entry.hours}*35`,
-        from: "shared",
+        from: "ppd",
         to: "na",
         comment: "hours",
       });
