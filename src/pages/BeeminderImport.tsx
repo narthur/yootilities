@@ -22,14 +22,10 @@ function BeeminderImport() {
   const saveConfig = useMutation(api.beeminderConfig.save);
   const removeConfig = useMutation(api.beeminderConfig.remove);
   const runMigrations = useMutation(api.migrations.runMigrations);
-  const { isLoaded: isAuthLoaded } = useAuth();
 
   useEffect(() => {
-    // Run migrations when component mounts and auth is loaded
-    if (isAuthLoaded) {
-      runMigrations();
-    }
-  }, [runMigrations, isAuthLoaded]);
+    runMigrations();
+  }, [runMigrations]);
 
   const [token, setToken] = useState("");
   const [isConfigured, setIsConfigured] = useState(false);
