@@ -1,0 +1,20 @@
+{
+  "description": "Template configuration for this project. See https://www.codebuff.com/config for all options.",
+  "startupProcesses": [
+    {
+      "name": "vite",
+      "command": "pnpm dev",
+      "stdoutFile": "logs/vite.log"
+    },
+    {
+      "name": "convex",
+      "command": "npx convex dev",
+      "stdoutFile": "logs/convex.log"
+    },
+    {
+      "name": "test",
+      "command": "pnpm test",
+      "stdoutFile": "logs/test.log"
+    }
+  ]
+}
