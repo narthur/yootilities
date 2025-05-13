@@ -23,9 +23,9 @@ interface BeeminderEntry {
 
 interface BaserowResponse {
   results: {
-    date: string;
-    hours: string | number;
-    person: string;
+    Date: string;
+    Hours: string;
+    User: { id: number; value: string }[];
   }[];
 }
 
@@ -63,9 +63,9 @@ export const fetchEntries = action({
 
     const baserowData = (await baserowResponse.json()) as BaserowResponse;
     const baserowEntries = baserowData.results.map((row) => ({
-      date: row.date,
-      hours: parseFloat(row.hours.toString()),
-      person: row.person,
+      date: row.Date,
+      hours: parseFloat(row.Hours),
+      person: row.User[0].value,
     }));
 
     // Fetch from Beeminder
