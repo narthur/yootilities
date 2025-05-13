@@ -20,6 +20,10 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 - Keep designs beautiful and production-ready, not cookie-cutter.
 - Use TypeScript's strict mode.
 - Use Convex actions for API calls, not mutations. Mutations cannot use fetch().
+- For long-running operations:
+  1. Mutation schedules an action using ctx.scheduler.runAfter
+  2. Action performs the work and saves results to database
+  3. Client receives updates through Convex real-time system
 
 ## Project Structure
 

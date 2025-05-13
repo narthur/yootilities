@@ -1,4 +1,4 @@
-import { action, mutation } from "./_generated/server";
+import { action, mutation, internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -39,8 +39,10 @@ export const fetchEntries = action({
     baserowApiToken: v.string(),
     baserowTableId: v.string(),
     beeminderApiToken: v.string(),
+    userId: v.string(),
+    beforeContent: v.string(),
   },
-  handler: async (_, args) => {
+  handler: async (ctx, args) => {
     // Fetch from Baserow
     const baserowResponse = await fetch(
       "https://api.baserow.io/api/database/rows/table/" + args.baserowTableId + "/?user_field_names=true",
@@ -77,7 +79,50 @@ export const fetchEntries = action({
       hours: point.value,
     }));
 
-    return { baserowEntries, beeminderEntries };
+    // Process entries
+    const entries = parseLedger(args.beforeContent);
+    const mergedEntries = mergeEntries(entries, baserowEntries, beeminderEntries);
+    const newContent = generateLedger(mergedEntries);
+
+    // Save result using internal mutation
+    await ctx.runMutation(internal.ledger.saveResult, {
+      userId: args.userId,
+      beforeContent: args.beforeContent,
+      afterContent: newContent,
+      baserowEntries,
+      beeminderEntries,
+    });
+
+    return { newContent };
+  },
+});
+
+export const saveResult = internalMutation({
+  args: {
+    userId: v.string(),
+    beforeContent: v.string(),
+    afterContent: v.string(),
+    baserowEntries: v.array(v.object({
+      date: v.string(),
+      hours: v.number(),
+      person: v.string(),
+    })),
+    beeminderEntries: v.array(v.object({
+      date: v.string(),
+      hours: v.number(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("ledgerSnapshots", {
+      userId: args.userId,
+      timestamp: Date.now(),
+      beforeContent: args.beforeContent,
+      afterContent: args.afterContent,
+      baserowEntries: args.baserowEntries,
+      beeminderEntries: args.beeminderEntries,
+    });
+
+    return args.afterContent;
   },
 });
 
@@ -106,33 +151,16 @@ export const update = mutation({
       throw new Error("Missing configuration");
     }
 
-    // Parse current ledger
-    const entries = parseLedger(args.currentContent);
-
-    // Fetch new entries using the action
-    const { baserowEntries, beeminderEntries } = await ctx.runAction(internal.ledger.fetchEntries, {
+    // Schedule action to fetch and process entries
+    await ctx.scheduler.runAfter(0, internal.ledger.fetchEntries, {
       baserowApiToken: baserowConfig.apiToken,
       baserowTableId: baserowConfig.tableId,
       beeminderApiToken: beeminderConfig.apiToken,
-    });
-
-    // Merge all entries
-    const mergedEntries = mergeEntries(entries, baserowEntries, beeminderEntries);
-
-    // Generate new ledger content
-    const newContent = generateLedger(mergedEntries);
-
-    // Save snapshot
-    await ctx.db.insert("ledgerSnapshots", {
       userId: identity.subject,
-      timestamp: Date.now(),
       beforeContent: args.currentContent,
-      afterContent: newContent,
-      baserowEntries,
-      beeminderEntries,
     });
 
-    return { newContent };
+    return { status: "processing" };
   },
 });
 
@@ -203,3 +231,21 @@ export function generateLedger(entries: Entry[]): string {
     )
     .join("\n");
 }
+
+export const getLatestSnapshot = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    return await ctx.db
+      .query("ledgerSnapshots")
+      .withIndex("by_user_and_time", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .order("desc")
+      .first();
+  },
+});

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -7,10 +7,22 @@ function LedgerUpdate() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [updatedLedger, setUpdatedLedger] = useState("");
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
 
   const baserowConfig = useQuery(api.baserowConfig.get);
   const beeminderConfig = useQuery(api.beeminderConfig.get);
   const updateLedger = useMutation(api.ledger.update);
+
+  // Subscribe to ledger snapshots
+  const latestSnapshot = useQuery(api.ledger.getLatestSnapshot);
+
+  // Update UI when new snapshot arrives
+  useEffect(() => {
+    if (latestSnapshot?.afterContent) {
+      setUpdatedLedger(latestSnapshot.afterContent);
+      setProcessingStatus(null);
+    }
+  }, [latestSnapshot]);
 
   const handleUpdate = async () => {
     if (!ledgerContent.trim()) {
@@ -25,15 +37,19 @@ function LedgerUpdate() {
 
     setIsLoading(true);
     setError("");
+    setProcessingStatus("Starting...");
 
     try {
       const result = await updateLedger({
         currentContent: ledgerContent,
       });
 
-      setUpdatedLedger(result.newContent);
+      if (result.status === "processing") {
+        setProcessingStatus("Processing... This may take a few moments.");
+      }
     } catch (err) {
       setError("Failed to update ledger: " + (err as Error).message);
+      setProcessingStatus(null);
     } finally {
       setIsLoading(false);
     }
@@ -72,6 +88,9 @@ function LedgerUpdate() {
           </button>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {processingStatus && (
+            <p className="text-sm text-blue-600">{processingStatus}</p>
+          )}
 
           {updatedLedger && (
             <div>
