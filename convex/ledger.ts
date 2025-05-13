@@ -49,7 +49,7 @@ export const fetchEntries = action({
         process.env.BASEROW_DOMAIN +
         "/api/database/rows/table/" +
         args.baserowTableId +
-        "/?user_field_names=true",
+        "/?user_field_names=true&filters=%7B%22filter_type%22%3A%22AND%22%2C%22filters%22%3A%5B%7B%22type%22%3A%22higher_than%22%2C%22field%22%3A%22Hours%22%2C%22value%22%3A%220%22%7D%2C%7B%22type%22%3A%22boolean%22%2C%22field%22%3A%22Billable%22%2C%22value%22%3A%221%22%7D%2C%7B%22type%22%3A%22link_row_has%22%2C%22field%22%3A%22User%22%2C%22value%22%3A%222%22%7D%5D%2C%22groups%22%3A%5B%5D%7D",
       {
         headers: {
           Authorization: "Token " + args.baserowApiToken,
@@ -209,20 +209,18 @@ export function mergeEntries(
   const merged = [...currentEntries];
 
   // Add Luke's entries from Baserow
-  baserowEntries
-    .filter((entry) => entry.person.includes("Luke"))
-    .forEach((entry) => {
-      const date = entry.date.replace(/-/g, ".");
-      if (!merged.some((e) => e.date === date)) {
-        merged.push({
-          date,
-          amount: `${entry.hours}*35`,
-          from: "shared",
-          to: "la",
-          comment: "hours",
-        });
-      }
-    });
+  baserowEntries.forEach((entry) => {
+    const date = entry.date.replace(/-/g, ".");
+    if (!merged.some((e) => e.date === date)) {
+      merged.push({
+        date,
+        amount: `${entry.hours}*35`,
+        from: "shared",
+        to: "la",
+        comment: "hours",
+      });
+    }
+  });
 
   // Add Nathan's entries from Beeminder
   beeminderEntries.forEach((entry) => {
