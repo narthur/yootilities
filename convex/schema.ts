@@ -9,4 +9,28 @@ export default defineSchema({
     defaultAccount: v.string(),
     defaultComment: v.string(),
   }).index("by_user", ["userId"]),
+
+  baserowConfig: defineTable({
+    userId: v.string(),
+    apiToken: v.string(),
+    tableId: v.string(),
+  }).index("by_user", ["userId"]),
+
+  ledgerSnapshots: defineTable({
+    userId: v.string(),
+    timestamp: v.number(),
+    beforeContent: v.string(),
+    afterContent: v.string(),
+    baserowEntries: v.array(v.object({
+      date: v.string(),
+      hours: v.number(),
+      person: v.string(),
+    })),
+    beeminderEntries: v.array(v.object({
+      date: v.string(),
+      hours: v.number(),
+    })),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_time", ["userId", "timestamp"]),
 });

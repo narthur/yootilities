@@ -13,7 +13,9 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as baserowConfig from "../baserowConfig.js";
 import type * as beeminderConfig from "../beeminderConfig.js";
+import type * as ledger from "../ledger.js";
 import type * as migrations from "../migrations.js";
 
 /**
@@ -25,7 +27,9 @@ import type * as migrations from "../migrations.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  baserowConfig: typeof baserowConfig;
   beeminderConfig: typeof beeminderConfig;
+  ledger: typeof ledger;
   migrations: typeof migrations;
 }>;
 export declare const api: FilterApi<

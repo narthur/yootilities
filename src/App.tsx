@@ -1,9 +1,18 @@
 import { Routes, Route, Link, useLocation } from "react-router-dom";
-import { Calculator, Wrench, ChevronRight, ArrowDownAZ } from "lucide-react";
+import {
+  Calculator,
+  Wrench,
+  ChevronRight,
+  ArrowDownAZ,
+  Database,
+  RefreshCw,
+} from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import DataConverter from "./pages/DataConverter";
 import BeeminderImport from "./pages/BeeminderImport";
 import SortEntries from "./pages/SortEntries";
+import BaserowConfig from "./pages/BaserowConfig";
+import LedgerUpdate from "./pages/LedgerUpdate";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -17,6 +26,8 @@ function App() {
     { name: "From Clipboard", path: "/", icon: Calculator },
     { name: "From Beeminder", path: "/tools", icon: Wrench },
     { name: "Sort Entries", path: "/sort", icon: ArrowDownAZ },
+    { name: "Baserow Config", path: "/baserow", icon: Database },
+    { name: "Update Ledger", path: "/update", icon: RefreshCw },
   ];
 
   return (
@@ -92,6 +103,22 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <SortEntries />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/baserow"
+                  element={
+                    <ProtectedRoute>
+                      <BaserowConfig />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/update"
+                  element={
+                    <ProtectedRoute>
+                      <LedgerUpdate />
                     </ProtectedRoute>
                   }
                 />
