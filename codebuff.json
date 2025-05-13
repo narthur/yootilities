@@ -10,6 +10,11 @@
       "name": "convex",
       "command": "npx convex dev",
       "stdoutFile": "logs/convex.log"
+    },
+    {
+      "name": "test",
+      "command": "pnpm test",
+      "stdoutFile": "logs/test.log"
     }
   ]
 }

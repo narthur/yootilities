@@ -92,7 +92,7 @@ export const update = mutation({
   },
 });
 
-function parseLedger(content: string): Entry[] {
+export function parseLedger(content: string): Entry[] {
   return content
     .split("\n")
     .filter(line => line.trim().startsWith("iou["))
@@ -149,7 +149,7 @@ async function fetchBeeminderEntries(apiToken: string): Promise<BeeminderEntry[]
   }));
 }
 
-function mergeEntries(
+export function mergeEntries(
   currentEntries: Entry[],
   baserowEntries: BaserowEntry[],
   beeminderEntries: BeeminderEntry[]
@@ -189,7 +189,7 @@ function mergeEntries(
   return merged.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-function generateLedger(entries: Entry[]): string {
+export function generateLedger(entries: Entry[]): string {
   return entries
     .map(entry => 
       "iou[" + entry.date + ", " + entry.hours + "*" + entry.rate + ", ppd, " + entry.account + ", \"" + entry.comment + "\"]"
