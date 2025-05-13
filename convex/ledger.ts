@@ -4,8 +4,8 @@ import { internal } from "./_generated/api";
 
 interface Entry {
   date: string;
-  amount: string;  // Changed from hours/rate to amount to support expressions
-  from: string;    // Changed from account to from/to
+  amount: string; // Changed from hours/rate to amount to support expressions
+  from: string; // Changed from account to from/to
   to: string;
   comment: string;
 }
@@ -45,12 +45,16 @@ export const fetchEntries = action({
   handler: async (ctx, args) => {
     // Fetch from Baserow
     const baserowResponse = await fetch(
-      "https://api.baserow.io/api/database/rows/table/" + args.baserowTableId + "/?user_field_names=true",
+      "https://" +
+        process.env.BASEROW_DOMAIN +
+        "/api/database/rows/table/" +
+        args.baserowTableId +
+        "/?user_field_names=true",
       {
         headers: {
           Authorization: "Token " + args.baserowApiToken,
         },
-      }
+      },
     );
 
     if (!baserowResponse.ok) {
@@ -66,22 +70,31 @@ export const fetchEntries = action({
 
     // Fetch from Beeminder
     const beeminderResponse = await fetch(
-      "https://www.beeminder.com/api/v1/users/narthur/goals/bizsys/datapoints.json?auth_token=" + args.beeminderApiToken
+      "https://www.beeminder.com/api/v1/users/narthur/goals/bizsys/datapoints.json?auth_token=" +
+        args.beeminderApiToken,
     );
 
     if (!beeminderResponse.ok) {
       throw new Error("Failed to fetch Beeminder entries");
     }
 
-    const beeminderData = (await beeminderResponse.json()) as BeeminderResponse[];
+    const beeminderData =
+      (await beeminderResponse.json()) as BeeminderResponse[];
     const beeminderEntries = beeminderData.map((point) => ({
-      date: new Date(point.timestamp * 1000).toISOString().split("T")[0].replace(/-/g, "."),
+      date: new Date(point.timestamp * 1000)
+        .toISOString()
+        .split("T")[0]
+        .replace(/-/g, "."),
       hours: point.value,
     }));
 
     // Process entries
     const entries = parseLedger(args.beforeContent);
-    const mergedEntries = mergeEntries(entries, baserowEntries, beeminderEntries);
+    const mergedEntries = mergeEntries(
+      entries,
+      baserowEntries,
+      beeminderEntries,
+    );
     const newContent = generateLedger(mergedEntries);
 
     // Save result using internal mutation
@@ -102,15 +115,19 @@ export const saveResult = internalMutation({
     userId: v.string(),
     beforeContent: v.string(),
     afterContent: v.string(),
-    baserowEntries: v.array(v.object({
-      date: v.string(),
-      hours: v.number(),
-      person: v.string(),
-    })),
-    beeminderEntries: v.array(v.object({
-      date: v.string(),
-      hours: v.number(),
-    })),
+    baserowEntries: v.array(
+      v.object({
+        date: v.string(),
+        hours: v.number(),
+        person: v.string(),
+      }),
+    ),
+    beeminderEntries: v.array(
+      v.object({
+        date: v.string(),
+        hours: v.number(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("ledgerSnapshots", {
@@ -167,12 +184,12 @@ export const update = mutation({
 export function parseLedger(content: string): Entry[] {
   return content
     .split("\n")
-    .filter(line => line.trim().startsWith("iou["))
-    .map(line => {
+    .filter((line) => line.trim().startsWith("iou["))
+    .map((line) => {
       // Match format: iou[YYYY.MM.DD, amount, from, to, "comment"]
       const match = line.match(/iou\[(.*?), (.*?), (.*?), (.*?), "(.*?)"\]/);
       if (!match) throw new Error("Invalid line format: " + line);
-      
+
       const [, date, amount, from, to, comment] = match;
       return {
         date: date.trim(),
@@ -187,16 +204,16 @@ export function parseLedger(content: string): Entry[] {
 export function mergeEntries(
   currentEntries: Entry[],
   baserowEntries: BaserowEntry[],
-  beeminderEntries: BeeminderEntry[]
+  beeminderEntries: BeeminderEntry[],
 ): Entry[] {
   const merged = [...currentEntries];
 
   // Add Luke's entries from Baserow
   baserowEntries
-    .filter(entry => entry.person === "Luke")
-    .forEach(entry => {
+    .filter((entry) => entry.person === "Luke")
+    .forEach((entry) => {
       const date = entry.date.replace(/-/g, ".");
-      if (!merged.some(e => e.date === date)) {
+      if (!merged.some((e) => e.date === date)) {
         merged.push({
           date,
           amount: `${entry.hours}*35`,
@@ -208,8 +225,8 @@ export function mergeEntries(
     });
 
   // Add Nathan's entries from Beeminder
-  beeminderEntries.forEach(entry => {
-    if (!merged.some(e => e.date === entry.date)) {
+  beeminderEntries.forEach((entry) => {
+    if (!merged.some((e) => e.date === entry.date)) {
       merged.push({
         date: entry.date,
         amount: `${entry.hours}*35`,
@@ -226,8 +243,9 @@ export function mergeEntries(
 
 export function generateLedger(entries: Entry[]): string {
   return entries
-    .map(entry => 
-      `iou[${entry.date}, ${entry.amount}, ${entry.from}, ${entry.to}, "${entry.comment}"]`
+    .map(
+      (entry) =>
+        `iou[${entry.date}, ${entry.amount}, ${entry.from}, ${entry.to}, "${entry.comment}"]`,
     )
     .join("\n");
 }
@@ -242,9 +260,7 @@ export const getLatestSnapshot = query({
 
     return await ctx.db
       .query("ledgerSnapshots")
-      .withIndex("by_user_and_time", (q) =>
-        q.eq("userId", identity.subject)
-      )
+      .withIndex("by_user_and_time", (q) => q.eq("userId", identity.subject))
       .order("desc")
       .first();
   },
