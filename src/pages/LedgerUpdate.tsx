@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 
 function LedgerUpdate() {
   const [ledgerContent, setLedgerContent] = useState("");
@@ -15,6 +16,14 @@ function LedgerUpdate() {
 
   // Subscribe to ledger snapshots
   const latestSnapshot = useQuery(api.ledger.getLatestSnapshot);
+
+  // Extract just the iou entries for diffing
+  const extractIouEntries = (content: string) => {
+    return content
+      .split("\n")
+      .filter((line) => line.trim().startsWith("iou["))
+      .join("\n");
+  };
 
   // Update UI when new snapshot arrives
   useEffect(() => {
@@ -72,7 +81,7 @@ function LedgerUpdate() {
             </label>
             <textarea
               id="currentLedger"
-              className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
               value={ledgerContent}
               onChange={(e) => setLedgerContent(e.target.value)}
               placeholder="Paste your current ledger content here..."
@@ -94,18 +103,37 @@ function LedgerUpdate() {
 
           {updatedLedger && (
             <div>
-              <label
-                htmlFor="updatedLedger"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Updated Ledger Content
-              </label>
-              <textarea
-                id="updatedLedger"
-                className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
-                value={updatedLedger}
-                readOnly
-              />
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Changes
+              </h3>
+              <div className="rounded-lg overflow-hidden border border-gray-200">
+                <ReactDiffViewer
+                  oldValue={extractIouEntries(ledgerContent)}
+                  newValue={extractIouEntries(updatedLedger)}
+                  splitView={true}
+                  compareMethod={DiffMethod.WORDS_WITH_SPACE}
+                  useDarkTheme={false}
+                  leftTitle="Original Entries"
+                  rightTitle="Updated Entries"
+                  hideLineNumbers={false}
+                  styles={{
+                    variables: {
+                      light: {
+                        diffViewerBackground: "#fff",
+                        gutterBackground: "#f7f7f7",
+                        addedBackground: "#e6ffed",
+                        addedGutterBackground: "#cdffd8",
+                        removedBackground: "#ffeef0",
+                        removedGutterBackground: "#ffdce0",
+                        wordAddedBackground: "#acf2bd",
+                        wordRemovedBackground: "#fdb8c0",
+                        codeFoldBackground: "#f1f8ff",
+                        emptyLineBackground: "#fafbfc",
+                      },
+                    },
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

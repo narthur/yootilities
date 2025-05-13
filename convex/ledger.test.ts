@@ -5,7 +5,7 @@ describe("ledger", () => {
   describe("parseLedger", () => {
     it("should parse valid ledger entries", () => {
       const input = `iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]
-iou[2025.05.08, 550, shared, corp, "cash transfer"]`;
+iou[2025.05.08, 550, ppd, corp, "cash transfer"]`;
 
       const result = parseLedger(input);
 
@@ -20,7 +20,7 @@ iou[2025.05.08, 550, shared, corp, "cash transfer"]`;
         {
           date: "2025.05.08",
           amount: "550",
-          from: "shared",
+          from: "ppd",
           to: "corp",
           comment: "cash transfer",
         },
@@ -57,7 +57,7 @@ iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]
         {
           date: "2024.03.15",
           amount: "2*35",
-          from: "shared",
+          from: "ppd",
           to: "la",
           comment: "hours",
         },
@@ -78,27 +78,31 @@ iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]
         },
       ];
 
-      const result = mergeEntries(currentEntries, baserowEntries, beeminderEntries);
+      const result = mergeEntries(
+        currentEntries,
+        baserowEntries,
+        beeminderEntries,
+      );
 
       expect(result).toEqual([
         {
           date: "2024.03.17",
           amount: "4*35",
-          from: "shared",
+          from: "ppd",
           to: "na",
           comment: "hours",
         },
         {
           date: "2024.03.16",
           amount: "3*35",
-          from: "shared",
+          from: "ppd",
           to: "la",
           comment: "hours",
         },
         {
           date: "2024.03.15",
           amount: "2*35",
-          from: "shared",
+          from: "ppd",
           to: "la",
           comment: "hours",
         },
@@ -121,7 +125,7 @@ iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]
       const result = generateLedger(entries);
 
       expect(result).toBe(
-        'iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]'
+        'iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]',
       );
     });
   });
