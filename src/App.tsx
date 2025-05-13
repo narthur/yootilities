@@ -1,8 +1,12 @@
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 import { Calculator, Wrench, ChevronRight, ArrowDownAZ } from "lucide-react";
+import { UserButton } from "@clerk/clerk-react";
 import DataConverter from "./pages/DataConverter";
 import BeeminderImport from "./pages/BeeminderImport";
 import SortEntries from "./pages/SortEntries";
+import SignIn from "./pages/SignIn";
+import SignUp from "./pages/SignUp";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 console.log("App");
 
@@ -43,6 +47,9 @@ function App() {
                 ))}
               </div>
             </div>
+            <div className="flex items-center">
+              <UserButton afterSignOutUrl="/sign-in" />
+            </div>
           </div>
         </div>
       </nav>
@@ -62,9 +69,32 @@ function App() {
                 </span>
               </div>
               <Routes>
-                <Route path="/" element={<DataConverter />} />
-                <Route path="/tools" element={<BeeminderImport />} />
-                <Route path="/sort" element={<SortEntries />} />
+                <Route path="/sign-in" element={<SignIn />} />
+                <Route path="/sign-up" element={<SignUp />} />
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <DataConverter />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/tools"
+                  element={
+                    <ProtectedRoute>
+                      <BeeminderImport />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sort"
+                  element={
+                    <ProtectedRoute>
+                      <SortEntries />
+                    </ProtectedRoute>
+                  }
+                />
               </Routes>
             </div>
           </div>
