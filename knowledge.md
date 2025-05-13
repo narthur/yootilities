@@ -10,6 +10,7 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 - Lucide React for icons
 - PNPM for package management (v10.6.1)
 - Node.js v23.5.0
+- Convex for backend (serverless database + functions)
 
 ## Development Guidelines
 
@@ -24,6 +25,7 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 - `/src/pages/` - Page components
 - `/src/App.tsx` - Main app component with routing
 - `/src/main.tsx` - App entry point
+- `/convex/` - Convex backend (schema, functions)
 
 ## Current Features
 
@@ -48,3 +50,10 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 - `pnpm build` - Build for production
 - `pnpm lint` - Run ESLint
 - `pnpm preview` - Preview production build
+- `npx convex dev` - Start Convex development server
+
+## Development Setup
+
+Two servers need to be running for development:
+1. Vite dev server (`pnpm dev`)
+2. Convex dev server (`npx convex dev`)
