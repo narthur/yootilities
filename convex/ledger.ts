@@ -1,12 +1,13 @@
-import { mutation } from "./_generated/server";
+import { action, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 interface Entry {
   date: string;
-  hours: number;
-  account: string;
+  amount: string;  // Changed from hours/rate to amount to support expressions
+  from: string;    // Changed from account to from/to
+  to: string;
   comment: string;
-  rate: number;
 }
 
 interface BaserowEntry {
@@ -32,6 +33,53 @@ interface BeeminderResponse {
   timestamp: number;
   value: number;
 }
+
+export const fetchEntries = action({
+  args: {
+    baserowApiToken: v.string(),
+    baserowTableId: v.string(),
+    beeminderApiToken: v.string(),
+  },
+  handler: async (_, args) => {
+    // Fetch from Baserow
+    const baserowResponse = await fetch(
+      "https://api.baserow.io/api/database/rows/table/" + args.baserowTableId + "/?user_field_names=true",
+      {
+        headers: {
+          Authorization: "Token " + args.baserowApiToken,
+        },
+      }
+    );
+
+    if (!baserowResponse.ok) {
+      throw new Error("Failed to fetch Baserow entries");
+    }
+
+    const baserowData = (await baserowResponse.json()) as BaserowResponse;
+    const baserowEntries = baserowData.results.map((row) => ({
+      date: row.date,
+      hours: parseFloat(row.hours.toString()),
+      person: row.person,
+    }));
+
+    // Fetch from Beeminder
+    const beeminderResponse = await fetch(
+      "https://www.beeminder.com/api/v1/users/narthur/goals/bizsys/datapoints.json?auth_token=" + args.beeminderApiToken
+    );
+
+    if (!beeminderResponse.ok) {
+      throw new Error("Failed to fetch Beeminder entries");
+    }
+
+    const beeminderData = (await beeminderResponse.json()) as BeeminderResponse[];
+    const beeminderEntries = beeminderData.map((point) => ({
+      date: new Date(point.timestamp * 1000).toISOString().split("T")[0].replace(/-/g, "."),
+      hours: point.value,
+    }));
+
+    return { baserowEntries, beeminderEntries };
+  },
+});
 
 export const update = mutation({
   args: {
@@ -61,16 +109,12 @@ export const update = mutation({
     // Parse current ledger
     const entries = parseLedger(args.currentContent);
 
-    // Fetch new entries from Baserow
-    const baserowEntries = await fetchBaserowEntries(
-      baserowConfig.apiToken,
-      baserowConfig.tableId
-    );
-
-    // Fetch new entries from Beeminder
-    const beeminderEntries = await fetchBeeminderEntries(
-      beeminderConfig.apiToken
-    );
+    // Fetch new entries using the action
+    const { baserowEntries, beeminderEntries } = await ctx.runAction(internal.ledger.fetchEntries, {
+      baserowApiToken: baserowConfig.apiToken,
+      baserowTableId: baserowConfig.tableId,
+      beeminderApiToken: beeminderConfig.apiToken,
+    });
 
     // Merge all entries
     const mergedEntries = mergeEntries(entries, baserowEntries, beeminderEntries);
@@ -97,56 +141,19 @@ export function parseLedger(content: string): Entry[] {
     .split("\n")
     .filter(line => line.trim().startsWith("iou["))
     .map(line => {
-      const match = line.match(/iou\[(.*?), (.*?)\*(.*?), ppd, (.*?), "(.*?)"\]/);
+      // Match format: iou[YYYY.MM.DD, amount, from, to, "comment"]
+      const match = line.match(/iou\[(.*?), (.*?), (.*?), (.*?), "(.*?)"\]/);
       if (!match) throw new Error("Invalid line format: " + line);
       
-      const [, date, hours, rate, account, comment] = match;
+      const [, date, amount, from, to, comment] = match;
       return {
         date: date.trim(),
-        hours: parseFloat(hours),
-        rate: parseFloat(rate),
-        account: account.trim(),
+        amount: amount.trim(),
+        from: from.trim(),
+        to: to.trim(),
         comment: comment.trim(),
       };
     });
-}
-
-async function fetchBaserowEntries(apiToken: string, tableId: string): Promise<BaserowEntry[]> {
-  const response = await fetch(
-    "https://api.baserow.io/api/database/rows/table/" + tableId + "/?user_field_names=true",
-    {
-      headers: {
-        Authorization: "Token " + apiToken,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch Baserow entries");
-  }
-
-  const data = (await response.json()) as BaserowResponse;
-  return data.results.map((row) => ({
-    date: row.date,
-    hours: parseFloat(row.hours.toString()),
-    person: row.person,
-  }));
-}
-
-async function fetchBeeminderEntries(apiToken: string): Promise<BeeminderEntry[]> {
-  const response = await fetch(
-    "https://www.beeminder.com/api/v1/users/narthur/goals/bizsys/datapoints.json?auth_token=" + apiToken
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch Beeminder entries");
-  }
-
-  const data = (await response.json()) as BeeminderResponse[];
-  return data.map((point) => ({
-    date: new Date(point.timestamp * 1000).toISOString().split("T")[0].replace(/-/g, "."),
-    hours: point.value,
-  }));
 }
 
 export function mergeEntries(
@@ -164,9 +171,9 @@ export function mergeEntries(
       if (!merged.some(e => e.date === date)) {
         merged.push({
           date,
-          hours: entry.hours,
-          rate: 35, // Default rate
-          account: "la", // Luke's account
+          amount: `${entry.hours}*35`,
+          from: "shared",
+          to: "la",
           comment: "hours",
         });
       }
@@ -177,9 +184,9 @@ export function mergeEntries(
     if (!merged.some(e => e.date === entry.date)) {
       merged.push({
         date: entry.date,
-        hours: entry.hours,
-        rate: 35, // Default rate
-        account: "na", // Nathan's account
+        amount: `${entry.hours}*35`,
+        from: "shared",
+        to: "na",
         comment: "hours",
       });
     }
@@ -192,7 +199,7 @@ export function mergeEntries(
 export function generateLedger(entries: Entry[]): string {
   return entries
     .map(entry => 
-      "iou[" + entry.date + ", " + entry.hours + "*" + entry.rate + ", ppd, " + entry.account + ", \"" + entry.comment + "\"]"
+      `iou[${entry.date}, ${entry.amount}, ${entry.from}, ${entry.to}, "${entry.comment}"]`
     )
     .join("\n");
 }

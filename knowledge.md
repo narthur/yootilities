@@ -19,6 +19,7 @@ A collection of utility tools built with React, TypeScript, and Tailwind CSS.
 - For images, use Unsplash URLs only. Do not download images.
 - Keep designs beautiful and production-ready, not cookie-cutter.
 - Use TypeScript's strict mode.
+- Use Convex actions for API calls, not mutations. Mutations cannot use fetch().
 
 ## Project Structure
 

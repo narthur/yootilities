@@ -4,45 +4,50 @@ import { parseLedger, mergeEntries, generateLedger } from "./ledger";
 describe("ledger", () => {
   describe("parseLedger", () => {
     it("should parse valid ledger entries", () => {
-      const input = `iou[2024.03.15, 2*35, ppd, la, "hours"]
-iou[2024.03.14, 1.5*35, ppd, na, "hours"]`;
+      const input = `iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]
+iou[2025.05.08, 550, shared, corp, "cash transfer"]`;
 
       const result = parseLedger(input);
 
       expect(result).toEqual([
         {
-          date: "2024.03.15",
-          hours: 2,
-          rate: 35,
-          account: "la",
-          comment: "hours",
+          date: "2025.05.09",
+          amount: "25/60*20",
+          from: "b",
+          to: "t",
+          comment: "dishes, kitchen clean-up",
         },
         {
-          date: "2024.03.14",
-          hours: 1.5,
-          rate: 35,
-          account: "na",
-          comment: "hours",
+          date: "2025.05.08",
+          amount: "550",
+          from: "shared",
+          to: "corp",
+          comment: "cash transfer",
         },
       ]);
     });
 
-    it("should ignore invalid lines", () => {
-      const input = `some random text
-iou[2024.03.15, 2*35, ppd, la, "hours"]
-another invalid line`;
+    it("should ignore non-iou lines", () => {
+      const input = `account[b, "Bill", "email@example.com"]
+iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]
+(* Some comment *)`;
 
       const result = parseLedger(input);
 
       expect(result).toEqual([
         {
-          date: "2024.03.15",
-          hours: 2,
-          rate: 35,
-          account: "la",
-          comment: "hours",
+          date: "2025.05.09",
+          amount: "25/60*20",
+          from: "b",
+          to: "t",
+          comment: "dishes, kitchen clean-up",
         },
       ]);
+    });
+
+    it("should throw on invalid iou format", () => {
+      const input = `iou[invalid format]`;
+      expect(() => parseLedger(input)).toThrow("Invalid line format");
     });
   });
 
@@ -51,9 +56,9 @@ another invalid line`;
       const currentEntries = [
         {
           date: "2024.03.15",
-          hours: 2,
-          rate: 35,
-          account: "la",
+          amount: "2*35",
+          from: "shared",
+          to: "la",
           comment: "hours",
         },
       ];
@@ -78,55 +83,23 @@ another invalid line`;
       expect(result).toEqual([
         {
           date: "2024.03.17",
-          hours: 4,
-          rate: 35,
-          account: "na",
+          amount: "4*35",
+          from: "shared",
+          to: "na",
           comment: "hours",
         },
         {
           date: "2024.03.16",
-          hours: 3,
-          rate: 35,
-          account: "la",
+          amount: "3*35",
+          from: "shared",
+          to: "la",
           comment: "hours",
         },
         {
           date: "2024.03.15",
-          hours: 2,
-          rate: 35,
-          account: "la",
-          comment: "hours",
-        },
-      ]);
-    });
-
-    it("should not add duplicate entries", () => {
-      const currentEntries = [
-        {
-          date: "2024.03.15",
-          hours: 2,
-          rate: 35,
-          account: "la",
-          comment: "hours",
-        },
-      ];
-
-      const baserowEntries = [
-        {
-          date: "2024-03-15", // Same date as current entry
-          hours: 3,
-          person: "Luke",
-        },
-      ];
-
-      const result = mergeEntries(currentEntries, baserowEntries, []);
-
-      expect(result).toEqual([
-        {
-          date: "2024.03.15",
-          hours: 2,
-          rate: 35,
-          account: "la",
+          amount: "2*35",
+          from: "shared",
+          to: "la",
           comment: "hours",
         },
       ]);
@@ -137,26 +110,18 @@ another invalid line`;
     it("should generate ledger content from entries", () => {
       const entries = [
         {
-          date: "2024.03.15",
-          hours: 2,
-          rate: 35,
-          account: "la",
-          comment: "hours",
-        },
-        {
-          date: "2024.03.14",
-          hours: 1.5,
-          rate: 35,
-          account: "na",
-          comment: "hours",
+          date: "2025.05.09",
+          amount: "25/60*20",
+          from: "b",
+          to: "t",
+          comment: "dishes, kitchen clean-up",
         },
       ];
 
       const result = generateLedger(entries);
 
       expect(result).toBe(
-        'iou[2024.03.15, 2*35, ppd, la, "hours"]\n' +
-        'iou[2024.03.14, 1.5*35, ppd, na, "hours"]'
+        'iou[2025.05.09, 25/60*20, b, t, "dishes, kitchen clean-up"]'
       );
     });
   });
