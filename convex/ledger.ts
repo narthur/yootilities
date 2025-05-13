@@ -49,7 +49,7 @@ export const fetchEntries = action({
         process.env.BASEROW_DOMAIN +
         "/api/database/rows/table/" +
         args.baserowTableId +
-        "/?user_field_names=true&filters=%7B%22filter_type%22%3A%22AND%22%2C%22filters%22%3A%5B%7B%22type%22%3A%22higher_than%22%2C%22field%22%3A%22Hours%22%2C%22value%22%3A%220%22%7D%2C%7B%22type%22%3A%22boolean%22%2C%22field%22%3A%22Billable%22%2C%22value%22%3A%221%22%7D%2C%7B%22type%22%3A%22link_row_has%22%2C%22field%22%3A%22User%22%2C%22value%22%3A%222%22%7D%5D%2C%22groups%22%3A%5B%5D%7D",
+        "/?user_field_names=true&filters=%7B%22filter_type%22%3A%22AND%22%2C%22filters%22%3A%5B%7B%22type%22%3A%22higher_than%22%2C%22field%22%3A%22Hours%22%2C%22value%22%3A%220%22%7D%2C%7B%22type%22%3A%22boolean%22%2C%22field%22%3A%22Billable%22%2C%22value%22%3A%221%22%7D%2C%7B%22type%22%3A%22link_row_has%22%2C%22field%22%3A%22User%22%2C%22value%22%3A%222%22%7D%2C%7B%22type%22%3A%22date_is_after%22%2C%22field%22%3A%22Start%22%2C%22value%22%3A%22America%2FNew_York%3F2%3Fnr_weeks_ago%22%7D%5D%2C%22groups%22%3A%5B%5D%7D",
       {
         headers: {
           Authorization: "Token " + args.baserowApiToken,
@@ -67,6 +67,8 @@ export const fetchEntries = action({
       hours: parseFloat(row.Hours),
       person: row.User[0].value,
     }));
+
+    console.log({ baserowEntries });
 
     // Fetch from Beeminder
     const beeminderResponse = await fetch(
