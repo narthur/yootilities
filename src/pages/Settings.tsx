@@ -53,7 +53,6 @@ function Settings() {
         apiToken: baserowToken.trim(),
         tableId: tableId.trim(),
       });
-      setBaserowConfigured(true);
       setBaserowError("");
     } catch {
       setBaserowError("Failed to save configuration");
@@ -65,7 +64,6 @@ function Settings() {
       await removeBaserowConfig();
       setBaserowToken("");
       setTableId("");
-      setBaserowConfigured(false);
       setBaserowError("");
     } catch {
       setBaserowError("Failed to clear configuration");
@@ -116,7 +114,9 @@ function Settings() {
           className="w-full p-4 flex justify-between items-center border-b border-gray-200"
           onClick={() => setBaserowExpanded(!baserowExpanded)}
         >
-          <h3 className="text-lg font-medium text-gray-900">Baserow Configuration</h3>
+          <h3 className="text-lg font-medium text-gray-900">
+            Baserow Configuration
+          </h3>
           {baserowExpanded ? (
             <ChevronUp className="w-5 h-5 text-gray-500" />
           ) : (
@@ -192,7 +192,9 @@ function Settings() {
           className="w-full p-4 flex justify-between items-center border-b border-gray-200"
           onClick={() => setBeeminderExpanded(!beeminderExpanded)}
         >
-          <h3 className="text-lg font-medium text-gray-900">Beeminder Configuration</h3>
+          <h3 className="text-lg font-medium text-gray-900">
+            Beeminder Configuration
+          </h3>
           {beeminderExpanded ? (
             <ChevronUp className="w-5 h-5 text-gray-500" />
           ) : (
