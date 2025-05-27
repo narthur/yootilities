@@ -50,13 +50,37 @@ function InvoiceTab() {
     return date.toISOString().split("T")[0];
   };
 
+  // Format time from ISO string to readable format
+  const formatTime = (timeString: string): string => {
+    if (!timeString) return '';
+    
+    try {
+      const date = new Date(timeString);
+      if (isNaN(date.getTime())) return timeString;
+      
+      return date.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch (e) {
+      return timeString;
+    }
+  };
+
   // Effect to update billable entries when the invoice result changes
   useEffect(() => {
     if (!invoiceResult) return;
 
     if (invoiceResult.status === "completed") {
       if (Array.isArray(invoiceResult.result.entries)) {
-        setBillableEntries(invoiceResult.result.entries);
+        // Format times before setting entries
+        const formattedEntries = invoiceResult.result.entries.map(entry => ({
+          ...entry,
+          start: formatTime(entry.start),
+          end: formatTime(entry.end)
+        }));
+        setBillableEntries(formattedEntries);
       } else {
         setBillableEntries([]);
         console.error(
