@@ -4,7 +4,10 @@ import { api } from "../../convex/_generated/api";
 import { Loader2 } from "lucide-react";
 
 function InvoiceTab() {
-  const [clientName, setClientName] = useState("");
+  const [clientName, setClientName] = useState(() => {
+    // Initialize from localStorage if available
+    return localStorage.getItem("invoiceClientName") || "";
+  });
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [billableEntries, setBillableEntries] = useState<
@@ -70,6 +73,13 @@ function InvoiceTab() {
       return timeString;
     }
   };
+  
+  // Save client name to localStorage whenever it changes
+  useEffect(() => {
+    if (clientName) {
+      localStorage.setItem("invoiceClientName", clientName);
+    }
+  }, [clientName]);
 
   // Effect to update billable entries when the invoice result changes
   useEffect(() => {
