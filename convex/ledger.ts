@@ -26,6 +26,11 @@ interface BaserowResponse {
     Date: string;
     Hours: string;
     User: { id: number; value: string }[];
+    Start?: string;
+    End?: string;
+    Notes?: string;
+    Client?: string;
+    Billable?: boolean;
   }[];
 }
 
@@ -33,6 +38,142 @@ interface BeeminderResponse {
   timestamp: number;
   value: number;
 }
+
+// Action to fetch invoice entries from Baserow
+export const fetchInvoiceEntriesAction = action({
+  args: {
+    clientName: v.string(),
+    startDate: v.string(),
+    endDate: v.string(),
+    baserowApiToken: v.string(),
+    baserowTableId: v.string(),
+  },
+  returns: v.object({
+    entries: v.array(v.object({
+      date: v.string(),
+      start: v.string(),
+      end: v.string(),
+      hours: v.number(),
+      user: v.string(),
+      notes: v.string(),
+      client: v.string(),
+    })),
+    totalHours: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Fetch entries from Baserow for a specific client within date range
+    const baserowResponse = await fetch(
+      "https://" +
+        process.env.BASEROW_DOMAIN +
+        "/api/database/rows/table/" +
+        args.baserowTableId +
+        "/?user_field_names=true&filters=" + 
+        encodeURIComponent(JSON.stringify({
+          filter_type: "AND",
+          filters: [
+            {
+              type: "higher_than",
+              field: "Hours",
+              value: "0"
+            },
+            {
+              type: "boolean",
+              field: "Billable",
+              value: "1"
+            },
+            {
+              type: "contains",
+              field: "Client",
+              value: args.clientName
+            },
+            {
+              type: "date_after",
+              field: "Date",
+              value: args.startDate
+            },
+            {
+              type: "date_before",
+              field: "Date", 
+              value: args.endDate
+            }
+          ]
+        })),
+      {
+        headers: {
+          Authorization: "Token " + args.baserowApiToken,
+        },
+      },
+    );
+
+    if (!baserowResponse.ok) {
+      throw new Error("Failed to fetch Baserow entries for invoice");
+    }
+
+    const data = await baserowResponse.json();
+    
+    // Transform the data to match the expected invoice entry format
+    const entries = data.results.map((row) => ({
+      date: row.Date,
+      start: row.Start || "",
+      end: row.End || "",
+      hours: parseFloat(row.Hours),
+      user: row.User && row.User.length > 0 ? row.User[0].value : "",
+      notes: row.Notes || "",
+      client: row.Client || "",
+    }));
+
+    return { 
+      entries,
+      totalHours: entries.reduce((sum: number, entry: any) => sum + entry.hours, 0)
+    };
+  },
+});
+
+// Mutation that the client calls, which then runs the action
+export const fetchInvoiceEntries = mutation({
+  args: {
+    clientName: v.string(),
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  returns: v.object({
+    entries: v.array(v.object({
+      date: v.string(),
+      start: v.string(),
+      end: v.string(),
+      hours: v.number(),
+      user: v.string(),
+      notes: v.string(),
+      client: v.string(),
+    })),
+    totalHours: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the Baserow configuration for this user
+    const baserowConfig = await ctx.db
+      .query("baserowConfig")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!baserowConfig) {
+      throw new Error("Baserow configuration is missing");
+    }
+
+    // Schedule the action to fetch the entries
+    return await ctx.scheduler.runAfter(0, internal.ledger.fetchInvoiceEntriesAction, {
+      clientName: args.clientName,
+      startDate: args.startDate,
+      endDate: args.endDate,
+      baserowApiToken: baserowConfig.apiToken,
+      baserowTableId: baserowConfig.tableId,
+    });
+  },
+});
 
 export const fetchEntries = action({
   args: {
@@ -42,6 +183,9 @@ export const fetchEntries = action({
     userId: v.string(),
     beforeContent: v.string(),
   },
+  returns: v.object({
+    newContent: v.string(),
+  }),
   handler: async (ctx, args) => {
     // Fetch from Baserow
     const baserowResponse = await fetch(
@@ -65,7 +209,7 @@ export const fetchEntries = action({
     const baserowEntries = baserowData.results.map((row) => ({
       date: row.Date,
       hours: parseFloat(row.Hours),
-      person: row.User[0].value,
+      person: row.User && row.User.length > 0 ? row.User[0].value : "",
     }));
 
     console.log({ baserowEntries });
@@ -131,6 +275,7 @@ export const saveResult = internalMutation({
       }),
     ),
   },
+  returns: v.string(),
   handler: async (ctx, args) => {
     await ctx.db.insert("ledgerSnapshots", {
       userId: args.userId,
@@ -149,6 +294,9 @@ export const update = mutation({
   args: {
     currentContent: v.string(),
   },
+  returns: v.object({
+    status: v.string(),
+  }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -252,6 +400,26 @@ export function generateLedger(entries: Entry[]): string {
 
 export const getLatestSnapshot = query({
   args: {},
+  returns: v.union(
+    v.object({
+      _id: v.id("ledgerSnapshots"),
+      _creationTime: v.number(),
+      userId: v.string(),
+      timestamp: v.number(),
+      beforeContent: v.string(),
+      afterContent: v.string(),
+      baserowEntries: v.array(v.object({
+        date: v.string(),
+        hours: v.number(),
+        person: v.string(),
+      })),
+      beeminderEntries: v.array(v.object({
+        date: v.string(),
+        hours: v.number(),
+      })),
+    }),
+    v.null()
+  ),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
