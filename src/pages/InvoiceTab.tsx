@@ -45,7 +45,7 @@ function InvoiceTab() {
       const now = new Date();
       const yesterday = new Date(now);
       yesterday.setDate(now.getDate() - 1);
-      
+
       const oneWeekBefore = new Date(yesterday);
       oneWeekBefore.setDate(yesterday.getDate() - 7);
 
@@ -60,22 +60,22 @@ function InvoiceTab() {
 
   // Format time from ISO string to readable format
   const formatTime = (timeString: string): string => {
-    if (!timeString) return '';
-    
+    if (!timeString) return "";
+
     try {
       const date = new Date(timeString);
       if (isNaN(date.getTime())) return timeString;
-      
-      return date.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: true 
+
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       });
-    } catch (e) {
+    } catch {
       return timeString;
     }
   };
-  
+
   // Save client name to localStorage whenever it changes
   useEffect(() => {
     if (clientName) {
@@ -90,10 +90,10 @@ function InvoiceTab() {
     if (invoiceResult.status === "completed") {
       if (Array.isArray(invoiceResult.result.entries)) {
         // Format times before setting entries
-        const formattedEntries = invoiceResult.result.entries.map(entry => ({
+        const formattedEntries = invoiceResult.result.entries.map((entry) => ({
           ...entry,
           start: formatTime(entry.start),
-          end: formatTime(entry.end)
+          end: formatTime(entry.end),
         }));
         setBillableEntries(formattedEntries);
       } else {
@@ -186,22 +186,24 @@ function InvoiceTab() {
   // Format entries for clipboard copy
   const formatEntriesForClipboard = () => {
     if (!billableEntries || billableEntries.length === 0) return "";
-    
+
     // Create header with date range
     const header = `## ${startDate} - ${endDate}\n\n`;
-    
+
     // Format each entry
-    const formattedEntries = billableEntries.map(entry => {
-      return `${entry.hours.toFixed(2)}\t${entry.user}\t${entry.notes}`;
-    }).join('\n');
-    
+    const formattedEntries = billableEntries
+      .map((entry) => {
+        return `${entry.hours.toFixed(2)}\t${entry.user}\t${entry.notes}`;
+      })
+      .join("\n");
+
     return header + formattedEntries;
   };
-  
+
   // Copy formatted entries to clipboard
   const copyToClipboard = async () => {
     const formattedText = formatEntriesForClipboard();
-    
+
     try {
       await navigator.clipboard.writeText(formattedText);
       setCopySuccess(true);
@@ -211,20 +213,20 @@ function InvoiceTab() {
       setError("Failed to copy to clipboard");
     }
   };
-  
+
   // Format the hours entry with current date
   const formatHoursEntry = () => {
     if (!billableEntries || billableEntries.length === 0) return "";
-    
+
     const totalHours = calculateTotalHours();
-    const today = new Date().toISOString().split('T')[0].replace(/-/g, '.');
+    const today = new Date().toISOString().split("T")[0].replace(/-/g, ".");
     return `iou[${today}, 80*${totalHours}, st, ppd, "Hours for ${startDate} - ${endDate}"]`;
   };
-  
+
   // Copy hours entry to clipboard
   const copyHoursEntryToClipboard = async () => {
     const hoursEntry = formatHoursEntry();
-    
+
     try {
       await navigator.clipboard.writeText(hoursEntry);
       setCopyHoursSuccess(true);
@@ -441,11 +443,13 @@ function InvoiceTab() {
                 </tfoot>
               </table>
             </div>
-            
+
             {/* Hours Entry Section */}
             <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-semibold text-gray-800">Hours Entry</h3>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Hours Entry
+                </h3>
                 <button
                   onClick={copyHoursEntryToClipboard}
                   className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"

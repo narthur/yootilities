@@ -141,33 +141,43 @@ export const fetchInvoiceEntriesAction = action({
               : "No results",
         });
       } catch (jsonError) {
+        const message =
+          jsonError instanceof Error ? jsonError.message : "Unknown error";
         console.error("Failed to parse JSON response", jsonError);
-        throw new Error(
-          "Failed to parse Baserow response: " + jsonError.message,
-        );
+        throw new Error("Failed to parse Baserow response: " + message);
       }
 
       // Transform the data to match the expected invoice entry format
-      const entries = data.results.map((row) => {
-        console.log("Processing row:", row);
-        return {
-          date: row.Date || "",
-          start: row.Start || "",
-          end: row.End || "",
-          hours: row.Hours ? parseFloat(row.Hours) : 0,
-          user: row.User && row.User.length > 0 ? row.User[0].value : "",
-          notes: row.Notes || "",
-          client:
-            row.Client && row.Client.length > 0 ? row.Client[0].value : "",
-        };
-      });
+      const entries = data.results.map(
+        (row: {
+          Date: string;
+          Start: string;
+          End: string;
+          Hours: string;
+          User: Array<{ value: string }>;
+          Notes: string;
+          Client: Array<{ value: string }>;
+        }) => {
+          console.log("Processing row:", row);
+          return {
+            date: row.Date || "",
+            start: row.Start || "",
+            end: row.End || "",
+            hours: row.Hours ? parseFloat(row.Hours) : 0,
+            user: row.User && row.User.length > 0 ? row.User[0].value : "",
+            notes: row.Notes || "",
+            client:
+              row.Client && row.Client.length > 0 ? row.Client[0].value : "",
+          };
+        },
+      );
 
       console.log(`Processed ${entries.length} entries`);
 
       const result = {
         entries,
         totalHours: entries.reduce(
-          (sum: number, entry: any) => sum + entry.hours,
+          (sum: number, entry: { hours: number }) => sum + entry.hours,
           0,
         ),
       };
