@@ -6,6 +6,7 @@ import {
   ArrowDownAZ,
   Settings as SettingsIcon,
   RefreshCw,
+  FileText,
 } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import DataConverter from "./pages/DataConverter";
@@ -13,6 +14,7 @@ import BeeminderImport from "./pages/BeeminderImport";
 import SortEntries from "./pages/SortEntries";
 import Settings from "./pages/Settings";
 import LedgerUpdate from "./pages/LedgerUpdate";
+import InvoiceTab from "./pages/InvoiceTab";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -28,6 +30,7 @@ function App() {
     { name: "Sort Entries", path: "/sort", icon: ArrowDownAZ },
     { name: "Settings", path: "/settings", icon: SettingsIcon },
     { name: "Update Ledger", path: "/update", icon: RefreshCw },
+    { name: "Invoice", path: "/invoice", icon: FileText },
   ];
 
   return (
@@ -119,6 +122,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <LedgerUpdate />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/invoice"
+                  element={
+                    <ProtectedRoute>
+                      <InvoiceTab />
                     </ProtectedRoute>
                   }
                 />
