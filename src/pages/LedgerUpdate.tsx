@@ -10,6 +10,7 @@ function LedgerUpdate() {
   const [error, setError] = useState("");
   const [updatedLedger, setUpdatedLedger] = useState("");
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+  const [processingDetails, setProcessingDetails] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 
   const baserowConfig = useQuery(api.baserowConfig.get);
@@ -27,10 +28,68 @@ function LedgerUpdate() {
       .join("\n");
   };
 
+  // Compare and extract changed entries
+  const getChangedEntries = (before: string, after: string) => {
+    const beforeLines = before.split("\n").filter((line) => line.trim().startsWith("iou["));
+    const afterLines = after.split("\n").filter((line) => line.trim().startsWith("iou["));
+    const beforeMap = new Map();
+    
+    // Create a map of the before entries by date and person
+    beforeLines.forEach(line => {
+      const match = line.match(/iou\[(\d{4}\.\d{2}\.\d{2})\]\s+([\d\.]+\*\d+)\s+(\w+)\s+(\w+)/);
+      if (match) {
+        const [_, date, amount, from, to] = match;
+        const key = `${date}:${from}:${to}`;
+        beforeMap.set(key, { line, amount, date });
+      }
+    });
+    
+    // Find changes and new entries
+    const changes = [];
+    afterLines.forEach(line => {
+      const match = line.match(/iou\[(\d{4}\.\d{2}\.\d{2})\]\s+([\d\.]+\*\d+)\s+(\w+)\s+(\w+)/);
+      if (match) {
+        const [_, date, amount, from, to] = match;
+        const key = `${date}:${from}:${to}`;
+        if (beforeMap.has(key)) {
+          const beforeEntry = beforeMap.get(key);
+          if (beforeEntry.amount !== amount) {
+            // Check if date is before cutoff
+            if (date < "2025.03.15") {
+              changes.push(`Skipped: ${date} ${from}->${to} (before 2025-03-15 cutoff)`);
+            } else {
+              changes.push(`Updated: ${date} ${from}->${to} from ${beforeEntry.amount} to ${amount}`);
+            }
+          }
+          beforeMap.delete(key); // Remove from map to track what's left
+        } else {
+          if (date < "2025.03.15") {
+            changes.push(`Skipped: ${date} ${from}->${to} (before 2025-03-15 cutoff)`);
+          } else {
+            changes.push(`Added: ${date} ${from}->${to} ${amount}`);
+          }
+        }
+      }
+    });
+    
+    return changes;
+  };
+
   // Update UI when new snapshot arrives
   useEffect(() => {
     if (latestSnapshot?.afterContent) {
       setUpdatedLedger(latestSnapshot.afterContent);
+      
+      // Calculate and display changes between before and after
+      if (latestSnapshot.beforeContent) {
+        const changes = getChangedEntries(latestSnapshot.beforeContent, latestSnapshot.afterContent);
+        if (changes.length > 0) {
+          setProcessingDetails(changes);
+        } else {
+          setProcessingDetails(["No changes detected in ledger entries"]);
+        }
+      }
+      
       setProcessingStatus(null);
     }
   }, [latestSnapshot]);
@@ -57,6 +116,7 @@ function LedgerUpdate() {
     setIsLoading(true);
     setError("");
     setProcessingStatus("Starting...");
+    setProcessingDetails([]);
 
     try {
       const result = await updateLedger({
@@ -86,6 +146,11 @@ function LedgerUpdate() {
         <h2 className="text-2xl font-semibold text-gray-900 mb-6">
           Update Ledger
         </h2>
+        <p className="text-gray-600 mb-4">
+          This tool will add new entries and update existing entries if their values have changed. 
+          It uses the most recent data from Beeminder and Baserow for each date.
+          <span className="font-semibold ml-1 text-amber-700">Important: Entries before 2025-03-15 will never be added or updated.</span>
+        </p>
 
         <div className="space-y-6">
           <div>
@@ -93,14 +158,14 @@ function LedgerUpdate() {
               htmlFor="currentLedger"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Current Ledger Content
+              Current Ledger Content (with existing entries to update)
             </label>
             <textarea
               id="currentLedger"
               className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
               value={ledgerContent}
               onChange={(e) => setLedgerContent(e.target.value)}
-              placeholder="Paste your current ledger content here..."
+              placeholder="Paste your current ledger content here (entries with the same date but different values will be updated)..."
             />
           </div>
 
@@ -109,18 +174,37 @@ function LedgerUpdate() {
             disabled={isLoading}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300"
           >
-            {isLoading ? "Updating..." : "Update Ledger"}
+            {isLoading ? "Updating..." : "Add New & Update Existing Entries"}
           </button>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           {processingStatus && (
-            <p className="text-sm text-blue-600">{processingStatus}</p>
+            <div className="my-3">
+              <p className="text-sm text-blue-600 font-medium">{processingStatus}</p>
+              {processingDetails.length > 0 && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-100 text-xs font-mono">
+                  {processingDetails.map((detail, index) => (
+                    <div key={index} className="py-1">
+                      {detail.includes("Updated") ? (
+                        <span className="text-green-700">{detail}</span>
+                      ) : detail.includes("Added") ? (
+                        <span className="text-blue-700">{detail}</span>
+                      ) : detail.includes("Skipped") ? (
+                        <span className="text-gray-500">{detail} <span className="italic">(dates before 2025-03-15 are ignored)</span></span>
+                      ) : (
+                        <span className="text-blue-800">{detail}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {updatedLedger && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Changes</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Changes (New entries and updated values)</h3>
                 <button
                   onClick={handleCopy}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
@@ -145,8 +229,8 @@ function LedgerUpdate() {
                   splitView={true}
                   compareMethod={DiffMethod.WORDS_WITH_SPACE}
                   useDarkTheme={false}
-                  leftTitle="Original Entries"
-                  rightTitle="Updated Entries"
+                  leftTitle="Current Entries"
+                  rightTitle="New & Updated Entries (Only for dates on or after 2025-03-15)"
                   hideLineNumbers={false}
                   styles={{
                     variables: {

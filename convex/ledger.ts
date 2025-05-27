@@ -37,6 +37,9 @@ interface BaserowResponse {
 interface BeeminderResponse {
   timestamp: number;
   value: number;
+  daystamp: string; // Format: "YYYYMMDD"
+  comment?: string;
+  id?: string;
 }
 
 // Action to fetch invoice entries from Baserow
@@ -404,6 +407,7 @@ export const fetchEntries = action({
     console.log({ baserowEntries });
 
     // Fetch from Beeminder
+    console.log("Fetching data from Beeminder...");
     const beeminderResponse = await fetch(
       "https://www.beeminder.com/api/v1/users/narthur/goals/bizsys/datapoints.json?auth_token=" +
         args.beeminderApiToken,
@@ -415,21 +419,62 @@ export const fetchEntries = action({
 
     const beeminderData =
       (await beeminderResponse.json()) as BeeminderResponse[];
-    const beeminderEntries = beeminderData.map((point) => ({
-      date: new Date(point.timestamp * 1000)
-        .toISOString()
-        .split("T")[0]
-        .replace(/-/g, "."),
-      hours: point.value,
-    }));
+    
+    console.log(`Received ${beeminderData.length} datapoints from Beeminder`);
+    
+    // Log raw data for debugging
+    beeminderData.forEach((point, index) => {
+      console.log(`Raw Beeminder datapoint ${index}: ID=${point.id}, Daystamp=${point.daystamp}, Value=${point.value}, Timestamp=${point.timestamp}, Comment=${point.comment || 'none'}`);
+    });
+    
+    // Sort Beeminder data by timestamp (descending) to ensure we get the latest entries first
+    beeminderData.sort((a, b) => b.timestamp - a.timestamp);
+    console.log("Sorted Beeminder data by timestamp (newest first)");
+    
+    // Group by daystamp to handle multiple entries for the same date
+    const entriesByDate = new Map<string, BeeminderEntry>();
+    
+    beeminderData.forEach((point) => {
+      // Format daystamp from YYYYMMDD to YYYY.MM.DD
+      const date = point.daystamp.replace(/(\d{4})(\d{2})(\d{2})/, "$1.$2.$3");
+      
+      console.log(`Processing Beeminder point: Daystamp=${point.daystamp}, Formatted date=${date}, Value=${point.value}`);
+        
+      // Only add if we haven't seen this date yet (keeping the latest entry)
+      if (!entriesByDate.has(date)) {
+        console.log(`Adding entry for date ${date} with value ${point.value}`);
+        entriesByDate.set(date, {
+          date,
+          hours: point.value,
+        });
+      } else {
+        console.log(`Skipping duplicate entry for date ${date} (already have entry with value ${entriesByDate.get(date)?.hours})`);
+      }
+    });
+    
+    // Convert the map values to an array
+    const beeminderEntries = Array.from(entriesByDate.values());
+    
+    // Log the entries for debugging
+    console.log('Final Beeminder entries after processing:');
+    beeminderEntries.forEach((entry, index) => {
+      console.log(`Entry ${index}: Date=${entry.date}, Hours=${entry.hours}`);
+    });
 
     // Process entries
+    console.log("Parsing current ledger content...");
     const entries = parseLedger(args.beforeContent);
+    console.log(`Found ${entries.length} entries in current ledger`);
+    
+    console.log("Merging entries from all sources...");
     const mergedEntries = mergeEntries(
       entries,
       baserowEntries,
       beeminderEntries,
     );
+    console.log(`After merging, have ${mergedEntries.length} total entries`);
+    
+    console.log("Generating new ledger content...");
     const newContent = generateLedger(mergedEntries);
 
     // Save result using internal mutation
@@ -547,26 +592,86 @@ export function mergeEntries(
 ): Entry[] {
   const merged = [...currentEntries];
 
-  // Add Luke's entries from Baserow
-  baserowEntries.forEach((entry) => {
-    const date = entry.date.replace(/-/g, ".");
-    if (!merged.some((e) => e.date === date)) {
-      merged.push({
-        date,
-        amount: `${entry.hours}*35`,
-        from: "ppd",
-        to: "la",
-        comment: "hours",
-      });
+  // Add or update Luke's entries from Baserow
+// Only update/add entries on or after 2025-03-15
+baserowEntries.forEach((entry) => {
+  const date = entry.date.replace(/-/g, ".");
+  const amount = `${entry.hours}*35`;
+    
+  // Check if the date is on or after 2025-03-15
+  const isAfterCutoff = date >= "2025.03.15";
+    
+  // Skip entries before cutoff date
+  if (!isAfterCutoff) {
+    console.log(`Skipping Baserow entry for ${date} as it's before the cutoff date (2025-03-15)`);
+    return;
+  }
+    
+  // Find if we have an existing entry for Luke on this date
+  const existingEntryIndex = merged.findIndex(
+    (e) => e.date === date && e.from === "ppd" && e.to === "la"
+  );
+    
+  if (existingEntryIndex >= 0) {
+    // Update existing entry if it has a different amount
+    if (merged[existingEntryIndex].amount !== amount) {
+      merged[existingEntryIndex].amount = amount;
     }
-  });
+  } else {
+    // Add new entry if none exists
+    merged.push({
+      date,
+      amount,
+      from: "ppd",
+      to: "la",
+      comment: "hours",
+    });
+  }
+});
 
-  // Add Nathan's entries from Beeminder
+  // Add or update Nathan's entries from Beeminder
+  // Only update/add entries on or after 2025-03-15
   beeminderEntries.forEach((entry) => {
-    if (!merged.some((e) => e.date === entry.date)) {
+    const amount = `${entry.hours}*35`;
+    
+    console.log(`Processing Beeminder entry for date ${entry.date} with hours ${entry.hours} (from daystamp)`);
+    
+    // Check if the date is on or after 2025-03-15
+    const isAfterCutoff = entry.date >= "2025.03.15";
+    
+    // Skip entries before cutoff date
+    if (!isAfterCutoff) {
+      console.log(`Skipping Beeminder entry for ${entry.date} as it's before the cutoff date (2025-03-15)`);
+      return;
+    }
+    
+    // Find if we have an existing entry for Nathan on this date
+    const existingEntryIndex = merged.findIndex(
+      (e) => e.date === entry.date && e.from === "ppd" && e.to === "na"
+    );
+    
+    if (existingEntryIndex >= 0) {
+      const existingEntry = merged[existingEntryIndex];
+      console.log(`Found existing entry at index ${existingEntryIndex}: date=${existingEntry.date}, amount=${existingEntry.amount}, from=${existingEntry.from}, to=${existingEntry.to}`);
+      
+      // Parse the existing amount to check for actual value difference
+      const existingHours = parseFloat(existingEntry.amount.split('*')[0]);
+      const newHours = entry.hours;
+      console.log(`Comparing hours: existing=${existingHours}, new=${newHours}`);
+      
+      // Update existing entry if it has a different amount
+      if (merged[existingEntryIndex].amount !== amount) {
+        console.log(`Updating amount from ${merged[existingEntryIndex].amount} to ${amount} (hours changed from ${existingHours} to ${newHours})`);
+        merged[existingEntryIndex].amount = amount;
+      } else {
+        console.log(`No update needed, amounts are identical`);
+      }
+    } else {
+      console.log(`No existing entry found for date=${entry.date}, from=ppd, to=na, adding new entry with amount=${amount}`);
+      // Add new entry if none exists
       merged.push({
         date: entry.date,
-        amount: `${entry.hours}*35`,
+        amount,
         from: "ppd",
         to: "na",
         comment: "hours",
