@@ -8,7 +8,16 @@ function InvoiceTab() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [billableEntries, setBillableEntries] = useState<
-    { hours: number }[] | null
+    | {
+        hours: number;
+        date: string;
+        start: string;
+        end: string;
+        user: string;
+        client: string;
+        notes: string;
+      }[]
+    | null
   >(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

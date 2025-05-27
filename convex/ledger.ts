@@ -82,12 +82,12 @@ export const fetchInvoiceEntriesAction = action({
           {
             type: "date_is_on_or_after",
             field: "Start",
-            value: args.startDate,
+            value: `America/New_York?${args.startDate}?exact_date`,
           },
           {
             type: "date_is_on_or_before",
             field: "Start",
-            value: args.endDate,
+            value: `America/New_York?${args.endDate}?exact_date`,
           },
         ],
         groups: [],
@@ -157,7 +157,8 @@ export const fetchInvoiceEntriesAction = action({
           hours: row.Hours ? parseFloat(row.Hours) : 0,
           user: row.User && row.User.length > 0 ? row.User[0].value : "",
           notes: row.Notes || "",
-          client: row.Client || "",
+          client:
+            row.Client && row.Client.length > 0 ? row.Client[0].value : "",
         };
       });
 
