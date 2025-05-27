@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, Check, FileText } from "lucide-react";
 
 function InvoiceTab() {
   const [clientName, setClientName] = useState(() => {
@@ -24,6 +24,8 @@ function InvoiceTab() {
   >(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [copyHoursSuccess, setCopyHoursSuccess] = useState(false);
 
   // Get Baserow configuration
   const baserowConfig = useQuery(api.baserowConfig.get);
@@ -181,6 +183,58 @@ function InvoiceTab() {
       .toFixed(2);
   };
 
+  // Format entries for clipboard copy
+  const formatEntriesForClipboard = () => {
+    if (!billableEntries || billableEntries.length === 0) return "";
+    
+    // Create header with date range
+    const header = `## ${startDate} - ${endDate}\n\n`;
+    
+    // Format each entry
+    const formattedEntries = billableEntries.map(entry => {
+      return `${entry.hours.toFixed(2)}\t${entry.user}\t${entry.notes}`;
+    }).join('\n');
+    
+    return header + formattedEntries;
+  };
+  
+  // Copy formatted entries to clipboard
+  const copyToClipboard = async () => {
+    const formattedText = formatEntriesForClipboard();
+    
+    try {
+      await navigator.clipboard.writeText(formattedText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+      setError("Failed to copy to clipboard");
+    }
+  };
+  
+  // Format the hours entry with current date
+  const formatHoursEntry = () => {
+    if (!billableEntries || billableEntries.length === 0) return "";
+    
+    const totalHours = calculateTotalHours();
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '.');
+    return `iou[${today}, 80*${totalHours}, st, ppd, "Hours for ${startDate} - ${endDate}"]`;
+  };
+  
+  // Copy hours entry to clipboard
+  const copyHoursEntryToClipboard = async () => {
+    const hoursEntry = formatHoursEntry();
+    
+    try {
+      await navigator.clipboard.writeText(hoursEntry);
+      setCopyHoursSuccess(true);
+      setTimeout(() => setCopyHoursSuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy hours entry: ", err);
+      setError("Failed to copy hours entry to clipboard");
+    }
+  };
+
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
       <div className="p-6">
@@ -275,9 +329,28 @@ function InvoiceTab() {
               <h3 className="text-lg font-semibold text-gray-800">
                 Billable Entries
               </h3>
-              <span className="text-sm text-gray-600">
-                Found {billableEntries.length} entries
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyToClipboard}
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Copy entries in the specified format"
+                >
+                  {copySuccess ? (
+                    <>
+                      <Check className="w-4 h-4 mr-1.5 text-green-500" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-1.5" />
+                      Copy
+                    </>
+                  )}
+                </button>
+                <span className="text-sm text-gray-600">
+                  Found {billableEntries.length} entries
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -367,6 +440,33 @@ function InvoiceTab() {
                   </tr>
                 </tfoot>
               </table>
+            </div>
+            
+            {/* Hours Entry Section */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold text-gray-800">Hours Entry</h3>
+                <button
+                  onClick={copyHoursEntryToClipboard}
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Copy hours entry"
+                >
+                  {copyHoursSuccess ? (
+                    <>
+                      <Check className="w-4 h-4 mr-1.5 text-green-500" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4 mr-1.5" />
+                      Copy Entry
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="bg-gray-50 rounded-md p-4 font-mono text-sm">
+                {formatHoursEntry()}
+              </div>
             </div>
           </div>
         )}
