@@ -33,4 +33,28 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_time", ["userId", "timestamp"]),
+    
+  invoiceRequests: defineTable({
+    requestId: v.string(),
+    userId: v.string(),
+    status: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    result: v.object({
+      entries: v.array(v.object({
+        date: v.string(),
+        start: v.string(),
+        end: v.string(),
+        hours: v.number(),
+        user: v.string(),
+        notes: v.string(),
+        client: v.string(),
+      })),
+      totalHours: v.number(),
+      error: v.optional(v.string()),
+    }),
+  })
+    .index("by_user", ["userId"])
+    .index("by_requestId", ["requestId"])
+    .index("by_status", ["status"]),
 });

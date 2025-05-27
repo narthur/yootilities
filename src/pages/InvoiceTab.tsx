@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from "../../convex/_generated/api";
+import { Loader2 } from "lucide-react";
 
 function InvoiceTab() {
   const [clientName, setClientName] = useState('');
@@ -15,7 +16,12 @@ function InvoiceTab() {
   
   // Clients could be fetched from Baserow but for now we'll keep it simple
   // In a real implementation, you would fetch clients from Baserow
-  const fetchEntries = useMutation(api.ledger.fetchInvoiceEntries);
+  const startFetch = useMutation(api.ledger.startInvoiceFetch);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const invoiceResult = useQuery(
+    api.ledger.getInvoiceResult, 
+    requestId ? { requestId } : "skip"
+  );
 
   // Set default date range to current month
   useEffect(() => {
@@ -33,6 +39,30 @@ function InvoiceTab() {
     return date.toISOString().split('T')[0];
   };
 
+  // Effect to update billable entries when the invoice result changes
+  useEffect(() => {
+    if (!invoiceResult) return;
+    
+    if (invoiceResult.status === "completed") {
+      if (Array.isArray(invoiceResult.result.entries)) {
+        setBillableEntries(invoiceResult.result.entries);
+      } else {
+        setBillableEntries([]);
+        console.error("Received invalid entries format:", invoiceResult.result.entries);
+      }
+      setIsLoading(false);
+    } else if (invoiceResult.status === "error") {
+      setError('Failed to fetch entries: ' + (invoiceResult.result.error || 'Unknown error'));
+      setIsLoading(false);
+    } else if (invoiceResult.status === "pending") {
+      // Keep loading state active while pending
+      setIsLoading(true);
+    } else if (invoiceResult.status === "not_found") {
+      setError('Request not found. Please try again.');
+      setIsLoading(false);
+    }
+  }, [invoiceResult]);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -53,29 +83,33 @@ function InvoiceTab() {
     
     setIsLoading(true);
     setError(null);
+    setBillableEntries([]);
     
     try {
-      const result = await fetchEntries({
+      const result = await startFetch({
         clientName,
         startDate,
         endDate,
       });
       
-      if (result && result.entries) {
-        setBillableEntries(result.entries);
-      } else {
-        setBillableEntries([]);
-        setError('No entries returned');
-      }
+      setRequestId(result.requestId);
+      
+      // The actual data will be loaded by the useQuery hook when the result is ready
     } catch (err) {
-      setError('Failed to fetch entries: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
+      setError('Failed to start invoice fetch: ' + (err instanceof Error ? err.message : String(err)));
       setIsLoading(false);
     }
   };
 
   const calculateTotalHours = () => {
-    return billableEntries.reduce((total, entry) => total + (typeof entry.hours === 'number' ? entry.hours : 0), 0);
+    if (!billableEntries || !Array.isArray(billableEntries) || billableEntries.length === 0) {
+      return 0;
+    }
+    return billableEntries.reduce((total, entry) => {
+      const hours = typeof entry.hours === 'number' ? entry.hours : 
+                   (typeof entry.hours === 'string' ? parseFloat(entry.hours) : 0);
+      return total + (isNaN(hours) ? 0 : hours);
+    }, 0).toFixed(2);
   };
 
   return (
@@ -134,6 +168,12 @@ function InvoiceTab() {
             >
               {isLoading ? 'Loading...' : 'Generate Invoice'}
             </button>
+            {invoiceResult && invoiceResult.status === "pending" && (
+              <span className="ml-2 text-sm text-gray-600 flex items-center">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Fetching data... This may take a few moments.
+              </span>
+            )}
           </div>
         </form>
         
@@ -145,7 +185,12 @@ function InvoiceTab() {
         
         {billableEntries.length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Billable Entries</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-800">Billable Entries</h3>
+              <span className="text-sm text-gray-600">
+                Found {billableEntries.length} entries
+              </span>
+            </div>
             
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -160,16 +205,25 @@ function InvoiceTab() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                   </tr>
                 </thead>
+                {billableEntries.length === 0 && (
+                  <tbody>
+                    <tr>
+                      <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                        No entries found for the selected date range and client.
+                      </td>
+                    </tr>
+                  </tbody>
+                )}
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {billableEntries.map((entry, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.start}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.end}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.hours}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.user}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.client}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{entry.notes}</td>
+                  {billableEntries.length > 0 && billableEntries.map((entry, index) => (
+                    <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.date || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.start || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.end || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{typeof entry.hours === 'number' ? entry.hours.toFixed(2) : 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.user || 'N/A'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.client || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{entry.notes || 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>
