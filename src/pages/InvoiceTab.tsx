@@ -34,15 +34,18 @@ function InvoiceTab() {
     requestId ? { requestId } : "skip",
   );
 
-  // Set default date range to current month
+  // Set default date range to yesterday and one week before
   useEffect(() => {
     if (!startDate || !endDate) {
       const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      
+      const oneWeekBefore = new Date(yesterday);
+      oneWeekBefore.setDate(yesterday.getDate() - 7);
 
-      setStartDate(formatDate(firstDay));
-      setEndDate(formatDate(lastDay));
+      setStartDate(formatDate(oneWeekBefore));
+      setEndDate(formatDate(yesterday));
     }
   }, [startDate, endDate]);
 
